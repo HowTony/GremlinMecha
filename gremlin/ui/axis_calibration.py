@@ -435,7 +435,7 @@ class CalibrationData:
 
     @deadzone_max.setter
     def deadzone_max(self, value):
-        if self._deadzone_max:
+        if self._deadzone_max != value:
             self._deadzone_max = value + 0.0
             self._update()
 
