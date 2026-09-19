@@ -5,28 +5,7 @@ from pathlib import Path
 from PySide6 import QtCore, QtGui, QtWidgets
 from mechagremlin.curves import Curve
 
-PALETTE = {"base": "#172333", "panel": "#213247", "border": "#455b70",
-           "text": "#eef4fa", "muted": "#b5c7d8", "curve": "#6cdae2"}
-STYLE = """
-QWidget#curveStudio { background: #172333; color: #eef4fa; }
-QWidget#curveStudio QScrollArea, QWidget#curveStudio QWidget#studioContent { background: #172333; border: none; }
-QWidget#curveStudio QLabel { color: #eef4fa; background: transparent; }
-QWidget#curveStudio QLabel[role="muted"] { color: #b5c7d8; }
-QWidget#curveStudio QLabel[role="brand"] { font-size: 23px; font-weight: 700; }
-QWidget#curveStudio QLabel[role="title"] { font-size: 30px; font-weight: 600; }
-QWidget#curveStudio QLabel[role="reading"] { font-size: 26px; font-weight: 600; }
-QWidget#curveStudio QFrame#controls { background: #213247; border-radius: 12px; }
-QWidget#curveStudio QPushButton { background: #2d4258; color: #eef4fa; border: 1px solid #455b70; border-radius: 6px; padding: 9px 14px; }
-QWidget#curveStudio QPushButton:hover { background: #3a536c; }
-QWidget#curveStudio QPushButton:focus { border: 2px solid #6cdae2; }
-QWidget#curveStudio QPushButton[primary="true"] { background: #6cdae2; color: #10252b; font-weight: 600; }
-QWidget#curveStudio QDoubleSpinBox { background: #172333; color: #eef4fa; border: 1px solid #455b70; border-radius: 5px; padding: 6px; }
-QWidget#curveStudio QDoubleSpinBox:focus { border: 2px solid #6cdae2; }
-QWidget#curveStudio QSlider::groove:horizontal { height: 5px; background: #455b70; border-radius: 2px; }
-QWidget#curveStudio QSlider::sub-page:horizontal { background: #6cdae2; }
-QWidget#curveStudio QSlider::handle:horizontal { background: #eef4fa; border: 2px solid #172333; width: 17px; margin: -7px 0; border-radius: 9px; }
-QWidget#curveStudio QSlider:focus { border: 1px solid #6cdae2; }
-"""
+from mechagremlin.theme import ASSETS, PALETTE, STYLE
 
 
 def label(text, role=None):
@@ -42,22 +21,29 @@ class CurveGraph(QtWidgets.QWidget):
         super().__init__(parent)
         self.curve = Curve()
         self.input_value = 0.25
-        self.setMinimumSize(320, 280)
+        self.setMinimumSize(320, 240)
         self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
         self.setAccessibleName("Response curve graph; numeric input and output are shown below")
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        bounds = QtCore.QRectF(48, 24, self.width() - 72, self.height() - 72)
+        bounds = QtCore.QRectF(48, 24, self.width() - 78, self.height() - 72)
 
         def point(x, y):
             return QtCore.QPointF(bounds.left() + (x + 1) * bounds.width() / 2,
                                  bounds.bottom() - (y + 1) * bounds.height() / 2)
 
+        painter.fillRect(bounds, QtGui.QColor(PALETTE["plot"]))
+        if self.curve.deadzone:
+            left = point(-self.curve.deadzone, 0).x()
+            right = point(self.curve.deadzone, 0).x()
+            band = QtGui.QColor(PALETTE["accent"])
+            band.setAlpha(28)
+            painter.fillRect(QtCore.QRectF(left, bounds.top(), right-left, bounds.height()), band)
         for n in range(-4, 5):
             value = n / 4
-            painter.setPen(QtGui.QPen(QtGui.QColor(PALETTE["border"]), 1 if n == 0 else 0.5))
+            painter.setPen(QtGui.QPen(QtGui.QColor(PALETTE["border"] if n == 0 else PALETTE["grid"]), 1))
             painter.drawLine(point(value, -1), point(value, 1))
             painter.drawLine(point(-1, value), point(1, value))
         painter.setPen(QtGui.QPen(QtGui.QColor(PALETTE["muted"]), 1, QtCore.Qt.PenStyle.DashLine))
@@ -90,13 +76,15 @@ class CurveStudio(QtWidgets.QDialog):
         super().__init__(parent)
         self.setObjectName("curveStudio")
         self.setWindowTitle("MechaGremlin | Curve Studio")
+        self.setWindowIcon(QtGui.QIcon(str(ASSETS / "mecha-mark.svg")))
         self.setFont(QtGui.QFont("Segoe UI", 10))
         self.setStyleSheet(STYLE)
-        self.resize(1080, 730)
+        self.resize(1180, 810)
         self.setMinimumSize(780, 680)
         viewport_layout = QtWidgets.QVBoxLayout(self)
         viewport_layout.setContentsMargins(0, 0, 0, 0)
         self.scroll = QtWidgets.QScrollArea()
+        self.scroll.setObjectName("studioScroll")
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         self.scroll.setAccessibleName("Curve Studio content")
@@ -106,69 +94,133 @@ class CurveStudio(QtWidgets.QDialog):
         outer.setSizeConstraint(QtWidgets.QLayout.SizeConstraint.SetMinimumSize)
         self.scroll.setWidget(self.content)
         viewport_layout.addWidget(self.scroll)
-        outer.setContentsMargins(28, 20, 28, 20)
-        outer.setSpacing(16)
+        outer.setContentsMargins(26, 18, 26, 18)
+        outer.setSpacing(18)
+
         header = QtWidgets.QHBoxLayout()
+        header.setSpacing(10)
+        mark = QtWidgets.QLabel()
+        mark.setPixmap(self.windowIcon().pixmap(42, 42))
+        mark.setFixedSize(42, 42)
+        mark.setAccessibleName("MechaGremlin emblem")
+        header.addWidget(mark)
         header.addWidget(label("MechaGremlin", "brand"))
         header.addStretch()
-        header.addWidget(label("Curve Studio  /  Preview", "muted"))
+        badge = label("Manual preview", "badge")
+        badge.setWordWrap(False)
+        header.addWidget(badge)
         outer.addLayout(header)
-        outer.addWidget(label("Find your feel.", "title"))
-        outer.addWidget(label("Make small corrections easier while keeping full control at the ends of your stick.", "muted"))
+
+        heading = QtWidgets.QHBoxLayout()
+        title = QtWidgets.QVBoxLayout()
+        title.setSpacing(4)
+        title.addWidget(label("Curve Studio", "title"))
+        subtitle = label("Shape the response. Keep the control.", "muted")
+        subtitle.setWordWrap(False)
+        title.addWidget(subtitle)
+        heading.addLayout(title)
+        heading.addStretch()
+        outer.addLayout(heading)
+
         body = QtWidgets.QHBoxLayout()
-        body.setSpacing(28)
+        body.setSpacing(18)
         controls = QtWidgets.QFrame()
         controls.setObjectName("controls")
-        controls.setFixedWidth(290)
+        controls.setFixedWidth(276)
         settings = QtWidgets.QVBoxLayout(controls)
         settings.setContentsMargins(20, 20, 20, 20)
-        settings.setSpacing(12)
-        settings.addWidget(label("Centered axes", "brand"))
-        settings.addWidget(label("For pitch, roll, and rudder. Keep your throttle linear to start.", "muted"))
+        settings.setSpacing(14)
+        settings.addWidget(label("Response settings", "section"))
+        settings.addWidget(label("For centered stick and rudder axes.", "muted"))
+        preset_caption = QtWidgets.QHBoxLayout()
+        preset_caption.addWidget(label("Starting point"))
+        preset_caption.addStretch()
+        self.preset_state = label("Gentle", "accent")
+        preset_caption.addWidget(self.preset_state)
+        settings.addLayout(preset_caption)
         preset_row = QtWidgets.QHBoxLayout()
+        preset_row.setSpacing(4)
         self.presets = {}
-        for name, sensitivity in (("Linear", 100), ("Gentle", 60), ("Soft", 35)):
+        self.preset_values = {"Linear": 100, "Gentle": 60, "Soft": 35}
+        for name, sensitivity in self.preset_values.items():
             button = QtWidgets.QPushButton("&" + name)
             button.setAutoDefault(False)
+            button.setCheckable(True)
             button.setAccessibleName(name + " sensitivity preset")
             button.setToolTip(f"Set center sensitivity to {sensitivity}%. Keeps your deadzone unchanged.")
-            button.clicked.connect(lambda checked=False, s=sensitivity: self.sensitivity.setValue(s))
+            button.clicked.connect(lambda checked=False, s=sensitivity: self._select_preset(s))
             preset_row.addWidget(button)
             self.presets[name] = button
         settings.addLayout(preset_row)
         self.sensitivity = self._number(settings, "Center &sensitivity", 0, 100, 60)
-        settings.addWidget(label("Lower values soften small movements. 100% keeps the response linear before the deadzone.", "muted"))
+        settings.addWidget(label("Lower values make small movements gentler. Full travel stays at 100%.", "muted"))
         self.deadzone = self._number(settings, "Center &deadzone", 0, 25, 1)
-        settings.addWidget(label("Only increase this if your controller sends input while resting at center.", "muted"))
+        settings.addWidget(label("Ignore a little movement at rest. Use only enough to stop drift.", "muted"))
         settings.addStretch()
-        settings.addWidget(label("Full travel always reaches 100%. No smoothing or extra delay is added by this curve.", "muted"))
+        settings.addWidget(label("Symmetric response", "accent"))
+        settings.addWidget(label("Both directions share the same curve. Keep your throttle linear to start.", "muted"))
         body.addWidget(controls)
-        preview = QtWidgets.QVBoxLayout()
+
+        self.preview_panel = QtWidgets.QFrame()
+        self.preview_panel.setObjectName("previewPanel")
+        preview = QtWidgets.QVBoxLayout(self.preview_panel)
+        preview.setContentsMargins(20, 18, 20, 18)
         preview.setSpacing(12)
-        preview.addWidget(label("Response preview"))
-        preview.addWidget(label("Solid cyan: your curve     Dashed: linear reference", "muted"))
+        graph_header = QtWidgets.QHBoxLayout()
+        graph_header.addWidget(label("Response curve", "section"))
+        graph_header.addStretch()
+        graph_header.addWidget(label("Full range preserved", "muted"))
+        preview.addLayout(graph_header)
+        legend = QtWidgets.QHBoxLayout()
+        legend.setSpacing(8)
+        for text, color, style in (("Your curve", PALETTE["curve"], "solid"),
+                                   ("Linear reference", PALETTE["muted"], "dashed")):
+            swatch = QtWidgets.QFrame()
+            swatch.setFixedSize(24, 2)
+            swatch.setStyleSheet(f"background: transparent; border: none; border-top: 2px {style} {color};")
+            legend.addWidget(swatch)
+            caption = label(text, "muted")
+            caption.setWordWrap(False)
+            legend.addWidget(caption)
+            legend.addSpacing(8)
+        legend.addStretch()
+        preview.addLayout(legend)
         self.graph = CurveGraph()
         preview.addWidget(self.graph, 1)
-        values = QtWidgets.QHBoxLayout()
+
+        self.readouts = QtWidgets.QFrame()
+        self.readouts.setObjectName("readouts")
+        readings = QtWidgets.QHBoxLayout(self.readouts)
+        readings.setContentsMargins(18, 12, 18, 12)
+        readings.setSpacing(24)
         self.input_reading = label("", "reading")
         self.output_reading = label("", "reading")
-        values.addWidget(self.input_reading)
-        values.addWidget(self.output_reading)
-        preview.addLayout(values)
-        preview.addWidget(label("Test movement manually — this preview does not read your hardware.", "muted"))
+        self.output_reading.setObjectName("outputReading")
+        for caption, reading in (("Test input", self.input_reading), ("Preview output", self.output_reading)):
+            column = QtWidgets.QVBoxLayout()
+            column.setSpacing(2)
+            column.addWidget(label(caption, "muted"))
+            column.addWidget(reading)
+            readings.addLayout(column, 1)
+        preview.addWidget(self.readouts)
+
         self.test_input = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.test_input.setRange(-1000, 1000)
         self.test_input.setValue(250)
         self.test_input.setAccessibleName("Preview input position")
         self.test_input.setTickInterval(250)
-        movement_caption = label("&Test position (arrow keys move; Home/End reach full travel)", "muted")
+        self.test_input.setMinimumHeight(24)
+        movement_caption = label("&Test position", "muted")
         movement_caption.setBuddy(self.test_input)
         preview.addWidget(movement_caption)
         preview.addWidget(self.test_input)
-        body.addLayout(preview, 1)
+        preview.addWidget(label("Manual input only. Arrow keys move; Home / End test full travel.", "muted"))
+        body.addWidget(self.preview_panel, 1)
         outer.addLayout(body, 1)
+
         footer = QtWidgets.QHBoxLayout()
-        self.status = label("Export, then load the preset in an axis curve editor. Your active profile is unchanged.", "muted")
+        footer.setSpacing(24)
+        self.status = label("Export a preset, then load it in your axis curve editor. Your active profile stays unchanged.", "muted")
         footer.addWidget(self.status, 1)
         self.export_button = QtWidgets.QPushButton("&Export curve preset")
         self.export_button.setAutoDefault(False)
@@ -176,12 +228,17 @@ class CurveStudio(QtWidgets.QDialog):
         self.export_button.clicked.connect(self.export_preset)
         footer.addWidget(self.export_button)
         outer.addLayout(footer)
-        outer.addWidget(label("Built on GremlinEx by muchimi and Joystick Gremlin by WhiteMagic. GPL-3.0-or-later.", "muted"))
+        outer.addWidget(label("Built on GremlinEx and Joystick Gremlin.  GPL-3.0-or-later.", "muted"))
         for widget in (self.sensitivity, self.deadzone, self.test_input):
             widget.valueChanged.connect(self.refresh)
         tab_order = [*self.presets.values(), self.sensitivity, self.deadzone, self.test_input, self.export_button]
         for first, second in zip(tab_order, tab_order[1:]):
             self.setTabOrder(first, second)
+        self.refresh()
+
+    def _select_preset(self, sensitivity):
+        self.sensitivity.setValue(sensitivity)
+        # Re-assert selection even when clicking the already selected preset.
         self.refresh()
 
     def _number(self, layout, text, minimum, maximum, value):
@@ -204,8 +261,15 @@ class CurveStudio(QtWidgets.QDialog):
     def refresh(self):
         self.graph.curve = self.curve()
         self.graph.input_value = self.test_input.value()/1000
-        self.input_reading.setText(f"Input  {self.graph.input_value * 100:+.1f}%")
-        self.output_reading.setText(f"Output  {self.graph.curve.output(self.graph.input_value) * 100:+.1f}%")
+        self.input_reading.setText(f"{self.graph.input_value * 100:+.1f}%")
+        self.output_reading.setText(f"{self.graph.curve.output(self.graph.input_value) * 100:+.1f}%")
+        selected = "Custom"
+        for name, value in self.preset_values.items():
+            active = self.sensitivity.value() == value
+            self.presets[name].setChecked(active)
+            if active:
+                selected = name
+        self.preset_state.setText(selected)
         self.graph.update()
 
     def export_preset(self):

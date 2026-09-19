@@ -8,7 +8,7 @@ People connecting flight controls, driving controls, accessibility hardware, and
 
 A native Qt desktop application with a persistent device list, a focused mapping workspace, and contextual tuning. Use progressive disclosure: common controls first, advanced tools within reach. Represent physical input, transformation, and game output as distinct stages. Never imply a device is connected or a mapping is active without runtime evidence.
 
-Palette: navy #172333, slate #213247, border #455b70, foreground #eef4fa, muted text #b5c7d8, cyan curve #6cdae2. Segoe UI provides native Windows legibility and accessibility. Large graphs carry the visual identity; keep surrounding controls quiet. Sentence case, descriptive buttons, visible keyboard focus, and text alongside status color.
+Palette: graphite #1c2027, panel #252b34, border #3b4653, foreground #edf1f5, muted text #aebac8, cyan curve #8dced8, brass accent #dcb980. Central tokens live in mechagremlin/theme.py. Segoe UI provides native Windows legibility and accessibility. Large graphs carry the visual identity; keep surrounding controls quiet. Sentence case, descriptive buttons, visible keyboard focus, and text alongside status color.
 
 ## Implemented first slice
 
@@ -42,3 +42,8 @@ The first confirmed inherited bug fix is calibration's maximum deadzone becoming
 Independent export review verified the XML structure against the inherited parser and the Bezier representation against its spline evaluator. The control points represent the intended cubic exactly; the inherited evaluator uses a sampled lookup, with a measured maximum normalized error below 0.000075 in the reviewed sweep. That is not a measurement of hardware latency or flight response.
 
 Known inherited import limitation: loading a curve preset preserves its symmetric values but the existing editor may leave its symmetry lock disabled. Enable the symmetry control before manual point edits if mirrored editing is desired. A full import/UI regression belongs in the integration milestone.
+
+
+## Refined visual pass
+
+The custom angular emblem, compact masthead, and manual-preview badge identify the workspace. Settings and preview each have a clear surface. Presets expose selected/custom state; test input and preview output have aligned numeric readings. Explicit high-contrast stepper arrows and keyboard focus remain visible. The normal 1180x810 view needs no scrolling; the minimum 780x680 view scrolls without overlap.

@@ -73,7 +73,9 @@ class StudioTests(unittest.TestCase):
         self.window.show()
         self.app.processEvents()
         self.assertGreater(self.window.scroll.verticalScrollBar().maximum(), 0)
-        self.assertLess(self.window.graph.geometry().bottom(), self.window.input_reading.geometry().top())
+        graph_bottom = self.window.graph.mapTo(self.window.content, self.window.graph.rect().bottomLeft()).y()
+        reading_top = self.window.readouts.mapTo(self.window.content, QtCore.QPoint()).y()
+        self.assertLess(graph_bottom, reading_top)
         for button in self.window.presets.values():
             self.assertGreaterEqual(button.height(), button.minimumSizeHint().height())
         self.window.presets["Linear"].setFocus()
@@ -84,6 +86,17 @@ class StudioTests(unittest.TestCase):
         viewport = self.window.scroll.viewport()
         button_rect = QtCore.QRect(self.window.export_button.mapTo(viewport, QtCore.QPoint()), self.window.export_button.size())
         self.assertTrue(viewport.rect().contains(button_rect))
+
+    def test_presets_show_selection_and_custom_edits(self):
+        self.assertTrue(self.window.presets["Gentle"].isChecked())
+        self.window.presets["Gentle"].click()
+        self.assertTrue(self.window.presets["Gentle"].isChecked())
+        self.window.sensitivity.setValue(72.5)
+        self.assertEqual(self.window.preset_state.text(), "Custom")
+        self.assertFalse(any(button.isChecked() for button in self.window.presets.values()))
+        self.window.presets["Soft"].click()
+        self.assertEqual(self.window.preset_state.text(), "Soft")
+        self.assertEqual(sum(button.isChecked() for button in self.window.presets.values()), 1)
 
     def test_keyboard_moves_preview_and_updates_numeric_readout(self):
         slider = self.window.test_input
