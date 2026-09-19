@@ -185,6 +185,7 @@ class GremlinUi(gremlin.ui.ui_common.QRememberMainWindow):
         self.ui = Ui_Gremlin()
         # self.addWidget(QtWidgets.QLabel("TOP"))
         self.ui.build(self)  # build the main window
+        self.setWindowTitle("MechaGremlin")
         # self.addWidget(QtWidgets.QLabel("BOTTOM"))
 
         self._is_active = False  # status bar active flag
@@ -993,8 +994,21 @@ class GremlinUi(gremlin.ui.ui_common.QRememberMainWindow):
         self._tab_selection_completed = True
         self.popLoading()
 
+    def _show_curve_studio(self):
+        from mechagremlin.studio import CurveStudio
+
+        if not hasattr(self, "_curve_studio"):
+            self._curve_studio = CurveStudio(self)
+        self._curve_studio.show()
+        self._curve_studio.raise_()
+        self._curve_studio.activateWindow()
+
     def add_custom_tools_menu(self, menuTools):
         """adds custom tools to the menu"""
+        self._actionCurveStudio = QtGui.QAction("Curve Studio...", self)
+        self._actionCurveStudio.setToolTip("Create a response curve with a live preview and export a preset")
+        self._actionCurveStudio.triggered.connect(self._show_curve_studio)
+        menuTools.addAction(self._actionCurveStudio)
         # self._actionTabSort = QtGui.QAction("Sort Devices", self, triggered=self._tab_sort_cb)
         # self._actionTabSort.setToolTip("Sorts input hardware devices in alphabetical order")
 
@@ -5895,7 +5909,7 @@ class GremlinUi(gremlin.ui.ui_common.QRememberMainWindow):
             # add client name as a reference to title bar if a remote mode is enabled
             the_title = f"{the_title} [{gremlin.remote.remote_client.getClientName()}]"
 
-        self.setWindowTitle(the_title)
+        self.setWindowTitle(f"MechaGremlin | {the_title}")
 
 
 def configure_logger(config: dict):
